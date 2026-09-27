@@ -1,1 +1,38 @@
-
+{
+  "month": "2026-03",
+  "model": "RandomForestClassifier(n_estimators=300, max_depth=8)",
+  "split_design": "GroupShuffleSplit by client_hash_id, test_size=0.2, seed=42",
+  "feature_set": [
+    "prior_impressions_h1",
+    "prior_avg_position_h1",
+    "content_age_days_h1_end",
+    "word_count",
+    "search_volume",
+    "backlinks",
+    "category_count",
+    "has_keyword_data",
+    "content_type",
+    "main_intent",
+    "competition_level"
+  ],
+  "excluded_leakage_suspects": [
+    "prior_clicks_h1",
+    "prior_ctr_h1",
+    "days_since_update_h1_end"
+  ],
+  "base_rate": 0.093,
+  "auc_grouped_split": 0.862,
+  "auc_random_split": 0.915,
+  "precision_at_10_honest_model": 0.5,
+  "precision_at_10_baseline_rule": 0.2,
+  "ga4_coverage_this_month": 0.042,
+  "n_clients_in_panel": 50,
+  "n_rows_in_panel": 313270,
+  "action_distribution": {
+    "no_action": 156612,
+    "protect": 63449,
+    "review_for_refresh": 61050,
+    "quick_win_optimize": 26906,
+    "monitor": 5253
+  }
+}
