@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which content pages should an editor review first? A leakage-checked ranking of 313,000 pages</title>
+<meta name="description" content="A research note on ranking web content for editor review using real search-performance data: baseline versus Random Forest, client-grouped validation, and what survived the leakage audit.">
+<meta property="og:title" content="Which content pages should an editor review first?">
+<meta property="og:description" content="A leakage-checked ranking built on about 313,000 real pages: AUC 0.862 on held-out clients, and why the first 0.956 was wrong.">
+<meta property="og:type" content="article">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d2127;--muted:#5a626d;--rule:#d9d6cf;--card:#ffffff;--accent:#0072B2;--accent-soft:#e7f1f8;--warn:#fff6e0;--warn-rule:#e6c36a}
+@media (prefers-color-scheme:dark){:root{--bg:#14171b;--fg:#e8e6e1;--muted:#a3a9b2;--rule:#2f353c;--card:#1b1f24;--accent:#6bb7e6;--accent-soft:#1c2a35;--warn:#2b2615;--warn-rule:#7a6525}}
+*{box-sizing:border-box}
+html{scroll-padding-top:1rem}
+body{margin:0;background:var(--bg);color:var(--fg);font:1.0625rem/1.65 Georgia,"Iowan Old Style","Times New Roman",serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:46rem;margin:0 auto;padding:2rem 1.1rem 4rem}
+h1,h2,h3,.kicker,.byline,nav,figcaption,table,.stat,.label,footer{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+h1{font-size:clamp(1.9rem,5.5vw,2.6rem);line-height:1.15;margin:.2rem 0 .5rem;letter-spacing:-.01em}
+.subtitle{font-size:1.2rem;color:var(--muted);margin:0 0 .8rem;line-height:1.4}
+.kicker{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:600;margin:0}
+.byline{color:var(--muted);font-size:.95rem;margin:0 0 1.6rem}
+h2{font-size:1.45rem;margin:2.8rem 0 .6rem;padding-top:1rem;border-top:1px solid var(--rule);line-height:1.25}
+h3{font-size:1.1rem;margin:1.8rem 0 .3rem}
+p{margin:.7rem 0}
+a{color:var(--accent)}
+.abstract{background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:6px;padding:1rem 1.2rem;margin:1rem 0 1.4rem}
+.abstract h2{border:0;margin:0 0 .3rem;padding:0;font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.abstract p{margin:.3rem 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.8rem;margin:1.2rem 0 1.6rem}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:.8rem 1rem}
+.stat b{display:block;font-size:1.55rem;line-height:1.2}
+.stat span{font-size:.88rem;color:var(--muted);line-height:1.35;display:block;margin-top:.2rem}
+nav.toc{font-size:.92rem;margin:0 0 .5rem;color:var(--muted)}
+nav.toc a{margin-right:.9rem;white-space:nowrap;display:inline-block}
+.scroll{overflow-x:auto;margin:1rem 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;background:var(--card)}
+th,td{border-bottom:1px solid var(--rule);padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{font-weight:600;background:var(--accent-soft)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+caption{caption-side:top;text-align:left;font-weight:600;padding:.2rem 0 .5rem;font-size:.95rem}
+figure{margin:1.6rem 0;background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:.9rem .9rem .7rem}
+figure svg{width:100%;height:auto;display:block}
+svg text{fill:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+svg .tick,svg .leg{font-size:12px;fill:var(--muted)} svg .val{font-size:12px;font-weight:600} svg .cat{font-size:12.5px}
+svg .grid{stroke:var(--rule);stroke-width:1} svg .ref{stroke:var(--muted);stroke-width:1.4;stroke-dasharray:5 4} svg .refl{font-size:11.5px;fill:var(--muted)}
+figcaption{font-size:.92rem;color:var(--muted);margin-top:.5rem;line-height:1.5}
+figcaption b{color:var(--fg)}
+.note{background:var(--warn);border:1px solid var(--warn-rule);border-radius:6px;padding:.7rem 1rem;font-size:.97rem;margin:1.2rem 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--accent-soft);padding:.05em .3em;border-radius:3px}
+ul,ol{padding-left:1.3rem} li{margin:.3rem 0}
+footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--rule);color:var(--muted);font-size:.85rem}
+.skip{position:absolute;left:-999px} .skip:focus{left:1rem;top:1rem;background:var(--card);padding:.4rem .7rem;z-index:9}
+@media print{body{background:#fff;color:#000}.stats,nav.toc{display:none}figure,.abstract{break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#abstract">Skip to abstract</a>
+<main class="wrap">
+<header>
+<p class="kicker">Research note · FlyRank ML Internship capstone</p>
+<h1>Which content pages should an editor review first?</h1>
+<p class="subtitle">A leakage-checked ranking built on about 313,000 real pages of search data</p>
+<p class="byline">Mohamed Khaled · October 2026</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+<a href="#abstract">Abstract</a><a href="#introduction">Introduction</a><a href="#data">Data</a><a href="#methodology">Methodology</a><a href="#results">Results</a><a href="#limitations">Limitations</a><a href="#recommendations">Recommendations</a><a href="#reproducibility">Reproducibility</a><a href="#acknowledgments">Acknowledgments</a>
+</nav>
+
+<section class="abstract" id="abstract" aria-labelledby="abs-h">
+<h2 id="abs-h">Abstract</h2>
+<p>Content teams have far more pages than review hours, so choosing which pages to look at first has a real cost. Using search-performance data from the FlyRank ML Internship warehouse (about 313,000 pages across 50 clients, March 2026), I asked which pages lose clicks in the second half of a month, given only first-half signals. I compared a hand-written rule with a Random Forest, validating on held-out clients rather than random rows and auditing every feature for leakage. On held-out clients the model reached an AUC of 0.862 against a base rate of about 10%; an earlier version scored 0.956 until two label-adjacent features and one invalid date field were removed. The result is a directional, decision-support ranking meant for human editors: it covers one month and search data only, and it makes no causal claim.</p>
+</section>
+
+<div class="stats" role="list">
+<div class="stat" role="listitem"><b>0.862</b><span>AUC on held-out clients (base rate about 10%), measured on one month of data</span></div>
+<div class="stat" role="listitem"><b>0.956 → 0.862</b><span>Random Forest AUC before and after removing leakage-prone features</span></div>
+<div class="stat" role="listitem"><b>0.70 → 0.40</b><span>Precision at the top 10 when the split changed from random rows to whole clients</span></div>
+</div>
+
+<h2 id="introduction">1. Introduction: a decision with a price tag</h2>
+<p>Picture a content editor at a company that publishes thousands of web pages. This week there are a few hours of review time. Every hour spent on a page that was never going to move is an hour not spent on a page that was quietly losing visitors. The decision is easy to state and expensive to get wrong: which pages get looked at first?</p>
+<p>That is the real problem behind this study. FlyRank builds and monitors large volumes of published content for its clients, and its workflow already flags pages for refresh or click-through fixes using hand-written rules. FlyRank’s own March 2026 report, <em>The State of AI-Driven SEO in Numbers</em>, argues for simple, validated comparisons and for refreshing strong content before it decays. This note takes one lane of that problem, prioritising pages for review, and asks a narrower question: can a model that sees only what was known by mid-month rank pages by how likely their clicks are to fall during the rest of the month, and how much of its apparent skill survives honest validation?</p>
+<p>The answer is partly encouraging and partly a lesson in caution. A first model scored an AUC of 0.956, a figure inflated by features tied to how the label was built. After repairs and a split by client, the measured figure was 0.862. The sections below show how that number was earned, where it stops being valid, and how a person should use the resulting queue.</p>
+
+<h2 id="data">2. Data</h2>
+<p>The data come from the FlyRank ML Internship warehouse, a gated Hugging Face dataset of production Google Search Console metrics shared with interns. The program describes the full release as roughly 79 million rows; this study uses a single month of it.</p>
+<div class="scroll"><table>
+<caption>Table 1. What was used</caption>
+<tr><th>Item</th><th>Detail</th></tr>
+<tr><td>Main table</td><td><code>fact_content_daily_performance</code>: one row per report date × client × page (grain verified: zero duplicate keys in the month used)</td></tr>
+<tr><td>Joined table</td><td><code>dim_content</code>: static page attributes (content type, intent, competition level, word count, search volume, backlinks, category count, created date)</td></tr>
+<tr><td>Inspected, not modelled</td><td><code>dim_clients</code> (data-start dates)</td></tr>
+<tr><td>Development month</td><td>March 2026, a mid-panel month: 9,841,378 daily rows, 55 clients, 331,437 pages</td></tr>
+<tr><td>Time windows</td><td>Features from 1–15 March. Label from 16–31 March. The final month in the release (June 2026) was kept sealed and never used.</td></tr>
+<tr><td>Modelling panel</td><td>313,270 pages across 50 clients, after requiring activity in both half-months and excluding deleted pages. Share labelled “declining”: 9.3%.</td></tr>
+</table></div>
+<h3>What was excluded, and why</h3>
+<ul>
+<li><b>GA4 engagement columns.</b> Only 4.2% of March rows had GA4 data available, too sparse to use. The model therefore sees search visibility only.</li>
+<li><b>Deleted pages.</b> No editor action is possible on them.</li>
+<li><b>AI-referrer breakdowns.</b> Real data, but outside the scope of a review-priority lane.</li>
+<li><b>Days since last update.</b> The page table stores only the latest update date, so for 88.1% of pages that date falls after the 15 March cut-off and cannot describe what was known at the time. The feature was dropped rather than patched.</li>
+<li><b>Identifiers.</b> Client and page IDs are pseudonymous hashes. They were used for joining and grouping only, never as features, and none appear in this note.</li>
+</ul>
+
+<h2 id="methodology">3. Methodology</h2>
+<h3>Unit and label</h3>
+<p>One row is one page in March 2026. A page is labelled <em>declining</em> when its clicks in 16–31 March are lower than its clicks in 1–15 March. Because the label is built from second-half data, nothing from that period may appear in a feature.</p>
+<h3>Features</h3>
+<p>Eleven inputs, all known by 15 March or fixed attributes of the page: first-half impressions, first-half average position, page age, word count, search volume, backlinks, category count, a flag for whether keyword data exist, content type, search intent, and competition level.</p>
+<h3>Baseline rule</h3>
+<p>The comparison is a hand-written rule in the spirit of a refresh flag: a page scores if it has not been updated for 91 or more days, still receives impressions, and has a click-through rate below the average for its position band; the score is its impressions. Two signal checks came first. Click-through rate falls steadily as position worsens (confirmed; unweighted mean per page: 0.93% for positions up to 3, 0.47% for 3–10, 0.33% for 10–20, and 0.21% beyond 20). Staleness behaved the opposite way to the rule’s premise: among pages with a valid update date, 17.2% of those updated within 30 days declined versus 0.1% of those untouched for 181 days or more. That check covers only the roughly 12% of pages whose recorded update date precedes the cut-off.</p>
+<h3>Models and validation</h3>
+<p>Logistic Regression (standardised inputs) and a Random Forest (300 trees, depth 8, seed 42). Pages were split <em>by client</em>: 40 clients (270,159 pages) for training and 10 clients (43,111 pages) for testing, with zero clients in both. Scores are reported as precision at K (what an editor working down a queue experiences) and AUC, always next to the base rate, which is 10.6% in the test split.</p>
+<h3>Leakage checks</h3>
+<ul>
+<li><b>Timeline:</b> the last feature date (15 March) precedes the first label date (16 March).</li>
+<li><b>Label-adjacent features:</b> first-half clicks are one side of the inequality that defines the label, and first-half click-through rate is derived from them. Both were removed.</li>
+<li><b>Invalid date field:</b> days since update, described above, was removed.</li>
+<li><b>Split design:</b> every model was also scored under a random row split to measure how much that design flatters results.</li>
+<li><b>Importance method:</b> permutation importance was scored on AUC, because the default (accuracy) showed zero importance for every feature at a 10% base rate.</li>
+<li><b>Product flags:</b> none exist in these tables, so no existing system score could leak in.</li>
+</ul>
+
+<h2 id="results">4. Results</h2>
+<p>On the held-out clients, the Random Forest ranked pages better than the baseline rule at the top of the queue and overall.</p>
+<div class="scroll"><table>
+<caption>Table 2. Model versus baseline, same client-grouped test split (base rate 0.106)</caption>
+<tr><th>Model</th><th class="n">Precision@10</th><th class="n">Precision@20</th><th class="n">Precision@50</th><th class="n">AUC</th></tr>
+<tr><td>Baseline rule</td><td class="n">0.20</td><td class="n">0.20</td><td class="n">0.24</td><td class="n">0.500*</td></tr>
+<tr><td>Logistic Regression</td><td class="n">0.30</td><td class="n">0.25</td><td class="n">0.36</td><td class="n">0.675</td></tr>
+<tr><td>Random Forest</td><td class="n">0.50</td><td class="n">0.50</td><td class="n">0.32</td><td class="n">0.862</td></tr>
+</table></div>
+<p class="note">*The rule gives most pages a score of zero, so its AUC is close to uninformative; precision at K is the fairer comparison. Precision at small K is noisy: a re-run of the same Random Forest on the same split gave 0.40, 0.45 and 0.36 at K = 10, 20 and 50, while AUC was identical (0.862). Read top-of-queue figures as roughly ±0.1.</p>
+
+<figure>
+<svg viewBox="0 0 640 350" role="img" aria-labelledby="f1t f1d" xmlns="http://www.w3.org/2000/svg"><title id="f1t">AUC before and after removing leakage-prone features</title><desc id="f1d">Logistic Regression AUC fell from 0.911 to 0.675 and Random Forest AUC from 0.956 to 0.862 once the leakage-prone features were removed.</desc><line class="grid" x1="46" x2="626" y1="262.0" y2="262.0"/><text class="tick" x="40" y="266.0" text-anchor="end">0.0</text><line class="grid" x1="46" x2="626" y1="214.0" y2="214.0"/><text class="tick" x="40" y="218.0" text-anchor="end">0.2</text><line class="grid" x1="46" x2="626" y1="166.0" y2="166.0"/><text class="tick" x="40" y="170.0" text-anchor="end">0.4</text><line class="grid" x1="46" x2="626" y1="118.0" y2="118.0"/><text class="tick" x="40" y="122.0" text-anchor="end">0.6</text><line class="grid" x1="46" x2="626" y1="70.0" y2="70.0"/><text class="tick" x="40" y="74.0" text-anchor="end">0.8</text><line class="grid" x1="46" x2="626" y1="22.0" y2="22.0"/><text class="tick" x="40" y="26.0" text-anchor="end">1.0</text><rect x="86.6" y="43.4" width="101.4" height="218.6" fill="#E69F00" rx="2"/><text class="val" x="137.3" y="38.4" text-anchor="middle">0.911</text><rect x="191.0" y="100.0" width="101.4" height="162.0" fill="#0072B2" rx="2"/><text class="val" x="241.7" y="95.0" text-anchor="middle">0.675</text><text class="cat" x="191.0" y="282" text-anchor="middle">Logistic Regression</text><rect x="376.6" y="32.6" width="101.4" height="229.4" fill="#E69F00" rx="2"/><text class="val" x="427.3" y="27.6" text-anchor="middle">0.956</text><rect x="481.0" y="55.1" width="101.4" height="206.9" fill="#0072B2" rx="2"/><text class="val" x="531.7" y="50.1" text-anchor="middle">0.862</text><text class="cat" x="481.0" y="282" text-anchor="middle">Random Forest</text><line class="ref" x1="46" x2="626" y1="142.0" y2="142.0"/><rect x="46.0" y="302" width="12" height="12" fill="#E69F00" rx="2"/><text class="leg" x="64.0" y="312">As built (with leakage-prone features)</text><rect x="352.0" y="302" width="12" height="12" fill="#0072B2" rx="2"/><text class="leg" x="370.0" y="312">Honest (features removed)</text><line class="ref" x1="46.0" x2="58.0" y1="330" y2="330"/><text class="leg" x="64.0" y="334">no-skill AUC = 0.5</text></svg>
+<figcaption><b>Figure 1.</b> Same models, before and after removing leakage-prone features. Removing two label-adjacent features and one invalid date field cut Random Forest AUC from 0.956 to 0.862; the size of the drop is the size of the leak.</figcaption>
+</figure>
+
+<figure>
+<svg viewBox="0 0 640 328" role="img" aria-labelledby="f2t f2d" xmlns="http://www.w3.org/2000/svg"><title id="f2t">Random split versus client-grouped split</title><desc id="f2d">AUC dropped from 0.915 to 0.862, while precision at 10, 20 and 50 dropped from 0.70, 0.60, 0.62 to 0.40, 0.45, 0.36 when the split was grouped by client.</desc><line class="grid" x1="46" x2="626" y1="262.0" y2="262.0"/><text class="tick" x="40" y="266.0" text-anchor="end">0.0</text><line class="grid" x1="46" x2="626" y1="214.0" y2="214.0"/><text class="tick" x="40" y="218.0" text-anchor="end">0.2</text><line class="grid" x1="46" x2="626" y1="166.0" y2="166.0"/><text class="tick" x="40" y="170.0" text-anchor="end">0.4</text><line class="grid" x1="46" x2="626" y1="118.0" y2="118.0"/><text class="tick" x="40" y="122.0" text-anchor="end">0.6</text><line class="grid" x1="46" x2="626" y1="70.0" y2="70.0"/><text class="tick" x="40" y="74.0" text-anchor="end">0.8</text><line class="grid" x1="46" x2="626" y1="22.0" y2="22.0"/><text class="tick" x="40" y="26.0" text-anchor="end">1.0</text><rect x="66.3" y="42.4" width="49.2" height="219.6" fill="#E69F00" rx="2"/><text class="val" x="90.9" y="37.4" text-anchor="middle">0.915</text><rect x="118.5" y="55.1" width="49.2" height="206.9" fill="#0072B2" rx="2"/><text class="val" x="143.1" y="50.1" text-anchor="middle">0.862</text><text class="cat" x="118.5" y="282" text-anchor="middle">AUC</text><rect x="211.3" y="94.0" width="49.2" height="168.0" fill="#E69F00" rx="2"/><text class="val" x="235.9" y="89.0" text-anchor="middle">0.70</text><rect x="263.5" y="166.0" width="49.2" height="96.0" fill="#0072B2" rx="2"/><text class="val" x="288.1" y="161.0" text-anchor="middle">0.40</text><text class="cat" x="263.5" y="282" text-anchor="middle">Precision@10</text><rect x="356.3" y="118.0" width="49.2" height="144.0" fill="#E69F00" rx="2"/><text class="val" x="380.9" y="113.0" text-anchor="middle">0.60</text><rect x="408.5" y="154.0" width="49.2" height="108.0" fill="#0072B2" rx="2"/><text class="val" x="433.1" y="149.0" text-anchor="middle">0.45</text><text class="cat" x="408.5" y="282" text-anchor="middle">Precision@20</text><rect x="501.3" y="113.2" width="49.2" height="148.8" fill="#E69F00" rx="2"/><text class="val" x="525.9" y="108.2" text-anchor="middle">0.62</text><rect x="553.5" y="175.6" width="49.2" height="86.4" fill="#0072B2" rx="2"/><text class="val" x="578.1" y="170.6" text-anchor="middle">0.36</text><text class="cat" x="553.5" y="282" text-anchor="middle">Precision@50</text><line class="ref" x1="46" x2="626" y1="238.0" y2="238.0"/><rect x="46.0" y="302" width="12" height="12" fill="#E69F00" rx="2"/><text class="leg" x="64.0" y="312">Random row split</text><rect x="198.0" y="302" width="12" height="12" fill="#0072B2" rx="2"/><text class="leg" x="216.0" y="312">Client-grouped split</text><line class="ref" x1="378.0" x2="390.0" y1="308" y2="308"/><text class="leg" x="396.0" y="312">base rate ≈ 0.10</text></svg>
+<figcaption><b>Figure 2.</b> The same honest Random Forest under two split designs. AUC moved by about 0.05, but top-of-queue precision fell by 0.15 to 0.30 once whole clients were held out, which is the number an editor would actually feel.</figcaption>
+</figure>
+
+<h3>What the model leans on</h3>
+<figure>
+<svg viewBox="0 0 640 168" role="img" aria-labelledby="f3t f3d" xmlns="http://www.w3.org/2000/svg"><title id="f3t">Permutation importance of the honest Random Forest</title><desc id="f3d">Shuffling prior impressions cost 0.2008 AUC, average position 0.0212, and every other feature less than 0.001.</desc><text class="cat" x="222" y="28.6" text-anchor="end">prior_impressions_h1</text><rect x="230" y="14" width="340.0" height="20" fill="#0072B2" rx="2"/><text class="val" x="576.0" y="28.6">0.2008</text><text class="cat" x="222" y="58.6" text-anchor="end">prior_avg_position_h1</text><rect x="230" y="44" width="35.9" height="20" fill="#0072B2" rx="2"/><text class="val" x="271.9" y="58.6">0.0212</text><text class="cat" x="222" y="88.6" text-anchor="end">content_age_days_h1_end</text><rect x="230" y="74" width="1.5" height="20" fill="#0072B2" rx="2"/><text class="val" x="237.5" y="88.6">0.0007</text><text class="cat" x="222" y="118.6" text-anchor="end">content_type = keyword article</text><rect x="230" y="104" width="1.5" height="20" fill="#0072B2" rx="2"/><text class="val" x="237.5" y="118.6">0.0003</text><text class="cat" x="222" y="148.6" text-anchor="end">word_count</text><rect x="230" y="134" width="1.5" height="20" fill="#0072B2" rx="2"/><text class="val" x="237.5" y="148.6">0.0002</text></svg>
+<figcaption><b>Figure 3.</b> Permutation importance (drop in AUC when a feature is shuffled). One feature does most of the work: pages with more first-half impressions are the ones with room to show a measurable change.</figcaption>
+</figure>
+<p>First-half impressions dominate, followed by average position. Impressions are correlated with the first-half clicks that were removed, so part of that importance may be a diluted echo of how the label is built; this was not separately tested (see Limitations).</p>
+
+<h3>Where it is wrong</h3>
+<p>At a 0.5 cut-off the error rate was 11.2% for keyword articles, 4.7% for comparison articles and 0.7% for the smallest content type. By position band it was highest for pages in the top 3 (23.2%), similar for positions 3–10 and 10–20 (20.9% and 21.4%), and lowest beyond position 20 (13.0%), where little room remains to fall. The misses inspected were low-visibility, deep-position pages (for example 33 and 11 first-half impressions at average positions near 33 and 54): too little signal to say anything confident. The model’s scores are compressed, with the highest in the whole panel near 0.53, so it works as a ranking, not as a calibrated probability.</p>
+
+<h2 id="limitations">5. Limitations and honest framing</h2>
+<ul>
+<li><b>One month, one portfolio.</b> Validated on March 2026 and 10 held-out clients. It has not been checked on another month or a brand-new client.</li>
+<li><b>Search data only.</b> With GA4 at 4.2% coverage, the model says nothing about on-page engagement or content quality.</li>
+<li><b>The label is a raw comparison of two counts.</b> That carries floor and regression-to-the-mean effects, and the second window (16 days) is one day longer than the first (15 days), which tilts the label slightly towards “not declining”. “Clicks fell” is not the same as “this page needs a refresh”.</li>
+<li><b>Possible residual leak.</b> First-half impressions may still carry part of the label’s construction. Not tested by ablation.</li>
+<li><b>Update dates are a current snapshot.</b> Staleness could not be modelled, and the baseline’s staleness rule and signal check cover only about 12% of pages.</li>
+<li><b>Noisy at the top.</b> Precision at 10 moved between runs by about 0.1.</li>
+<li><b>Observational.</b> Nothing here tests whether refreshing a page improves its clicks. Results are directional and decision-support only.</li>
+<li><b>Selected population.</b> Pages needed activity in both half-months; deleted pages were excluded.</li>
+</ul>
+
+<h2 id="recommendations">6. Ranked recommendations: the action playbook</h2>
+<p>The queue turns each page’s score and position band into one action and one reason code, so a person can read it without seeing the model. The ranking below says where to start; only the first row is backed by the validated ranking evidence above.</p>
+<div class="scroll"><table>
+<caption>Table 3. Ranked actions (pages in the March 2026 panel)</caption>
+<tr><th>#</th><th>Action</th><th>Reason code</th><th class="n">Pages</th><th>How to use it</th></tr>
+<tr><td>1</td><td><code>review_for_refresh</code></td><td><code>high_risk_visible</code>, <code>high_risk_despite_position</code></td><td class="n">61,050</td><td>Highest model scores. Start here: read the page and check for a business reason the data cannot see.</td></tr>
+<tr><td>2</td><td><code>quick_win_optimize</code></td><td><code>striking_distance_opportunity</code></td><td class="n">26,906</td><td>Average position 10–20. Chosen by position band, not by the model; supported by the click-through pattern in Section 3.</td></tr>
+<tr><td>3</td><td><code>protect</code></td><td><code>top_performer_low_risk</code></td><td class="n">63,449</td><td>Top-10 positions without extreme risk. Leave alone, but confirm nothing is broken.</td></tr>
+<tr><td>4</td><td><code>monitor</code></td><td><code>high_risk_low_signal</code></td><td class="n">5,253</td><td>Elevated score but almost no visibility. Revisit next month.</td></tr>
+<tr><td>5</td><td><code>no_action</code></td><td><code>low_value_low_risk</code></td><td class="n">156,612</td><td>Low risk and low visibility. About half of the panel had no impressions at all in the first half-month.</td></tr>
+</table></div>
+<figure>
+<svg viewBox="0 0 640 168" role="img" aria-labelledby="f4t f4d" xmlns="http://www.w3.org/2000/svg"><title id="f4t">How the ranked queue splits into five actions</title><desc id="f4d">Of 313,270 pages: no_action 156,612, protect 63,449, review_for_refresh 61,050, quick_win_optimize 26,906, monitor 5,253.</desc><text class="cat" x="162" y="28.6" text-anchor="end">no_action</text><rect x="170" y="14" width="320.0" height="20" fill="#009E73" rx="2"/><text class="val" x="496.0" y="28.6">156,612  (50.0%)</text><text class="cat" x="162" y="58.6" text-anchor="end">protect</text><rect x="170" y="44" width="129.6" height="20" fill="#009E73" rx="2"/><text class="val" x="305.6" y="58.6">63,449  (20.3%)</text><text class="cat" x="162" y="88.6" text-anchor="end">review_for_refresh</text><rect x="170" y="74" width="124.7" height="20" fill="#009E73" rx="2"/><text class="val" x="300.7" y="88.6">61,050  (19.5%)</text><text class="cat" x="162" y="118.6" text-anchor="end">quick_win_optimize</text><rect x="170" y="104" width="55.0" height="20" fill="#009E73" rx="2"/><text class="val" x="231.0" y="118.6">26,906  (8.6%)</text><text class="cat" x="162" y="148.6" text-anchor="end">monitor</text><rect x="170" y="134" width="10.7" height="20" fill="#009E73" rx="2"/><text class="val" x="186.7" y="148.6">5,253  (1.7%)</text></svg>
+<figcaption><b>Figure 4.</b> How the ranked queue splits. Half of all pages land in <code>no_action</code> by design, so editor time concentrates on roughly one page in five.</figcaption>
+</figure>
+<h3>Human review before acting</h3>
+<ul>
+<li>Read the actual page: is it still accurate, relevant and on-brand? The model never sees content quality.</li>
+<li>Check the page is not already scheduled for removal, merging or a redesign.</li>
+<li>Look for context the numbers cannot show: seasonal, legal or campaign-linked pages.</li>
+<li>Spot-check rows from outside the top of the queue now and then, so a list that is only ever read at the top cannot drift unnoticed.</li>
+</ul>
+<h3>What should not be automated</h3>
+<ul>
+<li>Publishing or editing content from this queue. It says where to look, never what to write.</li>
+<li>Deleting or de-indexing pages because they landed in <code>no_action</code>.</li>
+<li>Applying the queue to a client or month it was not validated on, without repeating the split and leakage checks.</li>
+</ul>
+<h3>Cost, value and monitoring</h3>
+<p>The cost of a wrong pick is editor time. In the held-out test, roughly 0.45 to 0.50 of the top 20 pages were ones whose clicks fell, against a base rate near 0.11; that is a prioritisation aid, not evidence that a refresh will help. A click-value tiebreaker (clicks × cost per click) is a sensible next step but was not computed here. Re-run the evaluation monthly and consider retraining if top-of-queue precision falls toward the baseline, if the base rate drifts far from about 10%, if GA4 coverage rises enough to change the feature set, or if the page or client mix shifts materially.</p>
+
+<h2 id="reproducibility">7. Reproducibility</h2>
+<p>Everything is in the public repository: <a href="https://github.com/mohamedkhaled600/flyrank-internship-ml">https://github.com/mohamedkhaled600/flyrank-internship-ml</a>. Seeds are fixed at 42. To rerun, request access to the gated dataset on Hugging Face, store a read token as a Colab secret named <code>HF_TOKEN</code>, open a notebook in Colab and choose Run all. The ranked-queue CSV is regenerated on each run and is not stored in the repository; the run’s receipts are in <code>work/outputs/w07_playbook_metrics.json</code>.</p>
+<div class="scroll"><table>
+<caption>Table 4. Notebooks</caption>
+<tr><th>Step</th><th>Notebook</th></tr>
+<tr><td>Question and lane</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w01_research_question.ipynb">w01_research_question</a></td></tr>
+<tr><td>Task framing</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w02_ml_task_framing.ipynb">w02_ml_task_framing</a></td></tr>
+<tr><td>Data contract, leakage trap</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w03_data_contract.ipynb">w03_data_contract</a></td></tr>
+<tr><td>Baseline rule and signal checks</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w04_baseline_score.ipynb">w04_baseline_score</a></td></tr>
+<tr><td>Model versus baseline</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w05_model.ipynb">w05_model</a></td></tr>
+<tr><td>Validation and leakage audit</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w06_validation_audit.ipynb">w06_validation_audit</a></td></tr>
+<tr><td>Action playbook and exports</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/w07_action_playbook.ipynb">w07_action_playbook</a></td></tr>
+<tr><td>Paper mirror</td><td><a href="https://github.com/mohamedkhaled600/flyrank-internship-ml/blob/main/work/notebooks/capstone.ipynb">capstone</a></td></tr>
+</table></div>
+
+<h2 id="acknowledgments">8. Acknowledgments and data credit</h2>
+<p><b>Built on the FlyRank ML Internship dataset</b> — <a href="https://flyrank.ai" rel="noopener">https://flyrank.ai</a>. Thanks to the FlyRank internship team for the data, the framing, and the sessions on honest validation. FlyRank’s <em>The State of AI-Driven SEO in Numbers</em> (March 2026) informed the framing; none of its figures are used here. Code and drafting were produced with AI assistance and reviewed by the author, who is responsible for the claims.</p>
+<p>No client names, page addresses or search queries appear in this note.</p>
+
+<footer>Research note, October 2026. Measured on one month of data; directional and decision-support only.</footer>
+</main>
+</body>
+</html>
